@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>Consulta y visualización Rubén Garzón Vera</title>
+
+    <link rel="stylesheet" href="https://js.arcgis.com/3.20/esri/css/esri.css">
+    <script src="https://js.arcgis.com/3.20/"></script>
+    <script src="http://code.jquery.com/jquery-1.10.1.min.js"></script>
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+
+	    <style>
+	    html, body {
+		    padding right: : 0;
+		    margin: 5px;
+		    height: 100%;}
+
+      #mapDiv {
+        width: 80%;
+        height: 96%;
+        float: left;
+      }
+      #ta {
+        width: 20%;
+        height: 10%;
+        float: right;
+      }
+      #HomeButton {
+        position: absolute;
+        top: 95px;
+        left: 30px;
+        z-index: 50;
+      }
+      #scaleBarDiv{
+        display: block;
+        position: absolute;
+        z-index: 2;
+        bottom: 20px;
+        left: 120px;
+      }
+      #BasemapToggle {
+        position: absolute;
+        top: 35px;
+        right: 330px;
+        z-index: 50;
+      }
+    	</style>
+
+      <script>
+      var map;
+	    var urlDynamic = "http://sampleserver6.arcgisonline.com/arcgis/rest/services/USA/MapServer";
+	    var urlCities = "http://sampleserver6.arcgisonline.com/arcgis/rest/services/USA/MapServer/0";
+
+        require(["esri/map",
+      		      "esri/geometry/Circle",
+      		      "esri/layers/ArcGISDynamicMapServiceLayer",
+      		      "esri/tasks/query",
+      		      "esri/tasks/QueryTask",
+      		      "esri/geometry/Polygon",
+      		      "esri/symbols/PictureMarkerSymbol",
+      		      "esri/symbols/SimpleFillSymbol",
+      		      "esri/graphic",
+      		      "esri/layers/GraphicsLayer",
+      		      "esri/Color",
+                "esri/renderers/ClassBreaksRenderer",
+                "esri/symbols/SimpleLineSymbol",
+                "esri/symbols/SimpleMarkerSymbol",
+                "esri/renderers/SimpleRenderer",
+                "esri/dijit/HomeButton",
+                "esri/dijit/Scalebar",
+                "esri/dijit/BasemapToggle",
+      		      "dojo/domReady!"],
+      function(Map,
+              Circle,
+              ArcGISDynamicMapServiceLayer,
+              Query,
+              QueryTask,
+              Polygon,
+              PictureMarkerSymbol,
+              SimpleFillSymbol,
+              Graphic,
+              GraphicsLayer,
+              Color,
+              ClassBreaksRenderer,
+              SimpleLineSymbol,
+              SimpleMarkerSymbol,
+              SimpleRenderer,
+              HomeButton,
+              Scalebar,
+              BasemapToggle
+              ) {
+              //Creamos un mapa
+              map = new Map("mapDiv", {
+                    center: [-95.67, 38.25],
+                    basemap: "dark-gray",
+                    zoom: 5
+                    });
+
+              //Creamos un ArcGISDynamicMapServiceLayer
+              dynamicLayer = new ArcGISDynamicMapServiceLayer(urlDynamic,{id:"usa",opacity:0.4});
+              //La añadimos al mapa
+              map.addLayer(dynamicLayer);
+              //Creamos una GraphicsLayer
+              var graphicLayer = new GraphicsLayer();
+              //La añadimos al mapa
+              map.addLayer(graphicLayer);
+
+              //Query
+              var myQuery = new Query();
+              //Criterio por atributos
+              myQuery.where = "pop2000 > 500000";
+              //Atributos de salida
+              myQuery.outFields = ["objectid","areaname", "pop2000"];
+              //Para que nos devuelva la geometría
+              myQuery.returnGeometry = true;
+              myQuery.outSpatialReference = map.spatialReference;
+
+              //QurryTask
+              var myQueryTask = new QueryTask(urlCities);
+
+              //Evento click
+              map.on("click", function(evt){
+                //Criterio espacial
+                //Creo una geometria
+              var circle = new Circle({
+                center: evt.mapPoint,
+                radius: 600000
+              });
+              //Añado la geometría a la Query
+              myQuery.geometry = circle;
+              //Aplico criterio espacial
+              myQuery.spatialRelationship = Query.SPATIAL_REL_INTERSECTS;
+
+              //Creo Simbología
+              var simbol = new SimpleFillSymbol(SimpleFillSymbol.STYLE_SOLID, null, new Color([255,255,0,0.5]));
+              //Creamos Graphic
+              var gr = new Graphic(circle, simbol);
+              //Limpiamos GraphicsLayer
+              graphicLayer.clear();
+              //La añadimos
+              graphicLayer.add(gr);
+
+              //Ejecutamos la Query y cuamdo finalice la consulta disparamos la función show
+              myQueryTask.execute(myQuery, show);
+              });
+              function show(fsResult){
+          			var features = fsResult.features;
+          			map.graphics.clear();
+                //Funcion para borar la tabla
+                borrar();
+          			if(features.length!=0){
+
+          				for (var i = 0; i<features.length; i++){
+                    //Funcion que renderiza
+                    ren();
+                    //Añadimos al mapa
+          					map.graphics.add(features[i]);
+                    poblar(features[i]);
+                    }
+                } else {
+                  alert("no se ha encontrado ninguna entidad que cumpla las condiciones")
+                }
+              };
+              function borrar(){
+                var tabla = document.getElementById("tbody");
+                if (tabla.firstChild){
+                  while(tabla.firstChild){
+                    tabla.removeChild(tabla.firstChild);
+                  };
+                }
+              };
+              function poblar (features){
+                var tabla = document.getElementById("tbody");
+                var atributos = features.attributes;
+                var oid = atributos.objectid;
+                var nombre = atributos.areaname;
+                var poblacion = atributos.pop2000;
+
+
+                var fila = document.createElement("tr");
+                var filaData = [oid ,nombre, poblacion];
+                for (i in filaData){
+                  var celda = document.createElement("td");
+                  var textoCelda = document.createTextNode(filaData[i]);
+                  celda.appendChild(textoCelda);
+                  fila.appendChild(celda);
+                }
+                tabla.appendChild(fila);
+              };
+              function ren(){
+              /*var defaultSymbol = new SimpleFillSymbol().setStyle(SimpleFillSymbol.STYLE_NULL);
+              defaultSymbol.outline.setStyle(SimpleLineSymbol.STYLE_NULL);*/
+              var defaultSymbol = new SimpleMarkerSymbol();
+                defaultSymbol.style = SimpleMarkerSymbol.STYLE_DIAMOND;
+                defaultSymbol.setSize(5);
+                defaultSymbol.setColor(new Color([255,150,0,0.5]));
+
+              renderer = new ClassBreaksRenderer(defaultSymbol, "pop2000");
+
+              var symbol1 = new SimpleMarkerSymbol();
+                symbol1.style = SimpleMarkerSymbol.STYLE_DIAMOND;
+                symbol1.setSize(20);
+                symbol1.setColor(new Color([205,92,92,0.5]));
+	        	  var symbol2 = new SimpleMarkerSymbol();
+                symbol2.style = SimpleMarkerSymbol.STYLE_SQUARE;
+                symbol2.setSize(30);
+                symbol2.setColor(new Color([250,128,114,0.5]));
+	        	  var symbol3 = new SimpleMarkerSymbol();
+                symbol3.style = SimpleMarkerSymbol.STYLE_CIRCLE;
+                symbol3.setSize(40);
+                symbol3.setColor(new Color([255,160,122,0.5]));
+
+              renderer.addBreak(500001, 750000, symbol1);
+              renderer.addBreak(750001, 1000000, symbol2);
+              renderer.addBreak(1000001, 10000000000, symbol3);
+
+              map.graphics.setRenderer(renderer);
+
+            };
+            //Creamos homeButton
+            var homeButton = new HomeButton({
+              theme: "HomeButton",
+              map: map,
+              extent: null,
+              visible: true
+              }, "HomeButton");
+              homeButton.startup();
+
+            //Creamos scalebar
+            var scalebar = new Scalebar({
+              map: map,
+              scalebarUnit: "metric"
+              });
+
+            //Creamos BasemapToggle
+            var toggle = new BasemapToggle({
+              map: map,
+              basemap: "hybrid"
+              }, "BasemapToggle");
+              toggle.startup();
+
+
+        });
+      </script>
+      </head>
+      <body class="claro">
+          <div id="mapDiv">
+            <div id="HomeButton"></div>
+            <div id="scaleBarDiv"></div>
+            <div id="BasemapToggle"></div>
+          </div>
+          <div id="ta">
+            <div><p><strong>Click en el mapa para consultar ciudades mayores de 500000 habitantes:</strong></p></div>
+            <table id="tabla" class="table table-condensed">
+              <thead>
+              <tr>
+                <th>Oid</th>
+                <th>Region</th>
+                <th>Poblacion</th>
+              </tr>
+              </thead>
+              <tbody id="tbody">
+              </tbody>
+            </table>
+          </div>
+      </body>
+  </html>
